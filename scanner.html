@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Barcode Indexer</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; background: #0b0f14; color: #e7eef8; }
+    header { padding: 16px; border-bottom: 1px solid #1a2430; display:flex; gap:12px; align-items:center; justify-content:space-between; }
+    header h1 { margin: 0; font-size: 16px; font-weight: 650; }
+    main { padding: 16px; max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: 1fr; }
+    @media (min-width: 900px){ main { grid-template-columns: 420px 1fr; align-items:start; } }
+
+    .card { background: #101826; border: 1px solid #1a2430; border-radius: 14px; padding: 14px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+    .card h2 { margin: 0 0 10px; font-size: 14px; }
+    .muted { color: #9fb3c8; font-size: 12px; line-height: 1.4; }
+    .row { display:flex; gap: 10px; flex-wrap: wrap; }
+    .row > * { flex: 1; }
+    label { display:block; font-size: 12px; color:#b7c7da; margin-bottom: 6px; }
+    input, select {
+      width:100%; box-sizing:border-box;
+      padding: 10px 10px; border-radius: 10px;
+      border: 1px solid #263244; background: #0c131f; color: #e7eef8;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: #3b82f6; }
+    button {
+      padding: 10px 12px; border-radius: 10px; border: 1px solid #263244;
+      background: #0c131f; color:#e7eef8; cursor:pointer;
+    }
+    button.primary { background:#2563eb; border-color:#2563eb; }
+    button.danger { background:#b91c1c; border-color:#b91c1c; }
+    button:disabled { opacity: .55; cursor:not-allowed; }
+    video { width: 100%; border-radius: 12px; background:#000; border:1px solid #1a2430; }
+    .pill { font-size: 11px; border:1px solid #263244; padding: 3px 8px; border-radius: 999px; color:#cfe0f5; }
+    .list { display:grid; gap: 10px; }
+    .item { border:1px solid #1a2430; border-radius: 12px; padding: 12px; background:#0c131f; }
+    .itemTop { display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; }
+    .itemCode { font-weight: 700; letter-spacing: .2px; }
+    .itemMeta { font-size: 12px; color:#9fb3c8; margin-top: 2px; }
+    .links { margin-top: 10px; display:flex; gap: 8px; flex-wrap: wrap; }
+    a.linkBtn {
+      text-decoration:none; display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 10px; border-radius: 10px;
+      border: 1px solid #263244; background:#101826; color:#e7eef8;
+      font-size: 12px;
+    }
+    .small { font-size: 11px; }
+    .right { text-align:right; }
+    .divider { height: 1px; background:#1a2430; margin: 12px 0; }
+    .status { margin-top: 10px; font-size: 12px; color:#cfe0f5; }
+    .warn { color:#fbbf24; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Barcode Indexer</h1>
+    <span class="pill" id="supportPill">Checking scanner support…</span>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Scan</h2>
+      <p class="muted">
+        Uses your camera to detect barcodes. If your browser doesn’t support scanning,
+        you can still add items manually.
+      </p>
+
+      <div class="divider"></div>
+
+      <video id="video" playsinline muted></video>
+
+      <div class="row" style="margin-top:12px;">
+        <button id="startBtn" class="primary">Start Camera</button>
+        <button id="stopBtn">Stop</button>
+      </div>
+
+      <div class="status" id="scanStatus">Idle.</div>
+
+      <div class="divider"></div>
+
+      <h2>Add / Index</h2>
+
+      <div class="row">
+        <div>
+          <label for="codeInput">Barcode / UPC / EAN</label>
+          <input id="codeInput" placeholder="e.g., 070847811169" inputmode="numeric" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="nameInput">Name (optional)</label>
+          <input id="nameInput" placeholder="e.g., Monster Energy Original" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="noteInput">Notes (optional)</label>
+          <input id="noteInput" placeholder="e.g., Bought at Costco, 16oz can" />
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="addBtn" class="primary">Add to Index</button>
+        <button id="clearFormBtn">Clear</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="row">
+        <button id="exportBtn">Export JSON</button>
+        <button id="importBtn">Import JSON</button>
+      </div>
+
+      <div class="row">
+        <button id="wipeBtn" class="danger">Wipe Index</button>
+      </div>
+
+      <input id="importFile" type="file" accept="application/json" style="display:none;" />
+    </section>
+
+    <section class="card">
+      <div class="row" style="align-items:end;">
+        <div>
+          <h2 style="margin-bottom:6px;">Indexed Items</h2>
+          <p class="muted" id="countText">0 items</p>
+        </div>
+        <div class="right">
+          <label for="searchInput">Search</label>
+          <input id="searchInput" placeholder="Filter by code, name, note…" />
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="list" id="list"></div>
+      <p class="muted small" id="emptyText" style="display:none;">No items yet. Scan or add one on the left.</p>
+    </section>
+  </main>
+
+  <script>
+    // ---------- Storage ----------
+    const STORAGE_KEY = "barcode_indexer_items_v1";
+    function loadItems() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+      catch { return []; }
+    }
+    function saveItems(items) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+
+    // ---------- Utilities ----------
+    function nowIso() { return new Date().toISOString(); }
+    function cleanCode(s) {
+      return (s || "").toString().trim().replace(/\s+/g, "").replace(/[^\dA-Za-z]/g, "");
+    }
+    function escapeHtml(s) {
+      return (s || "").toString()
+        .replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+    function buildSearchLinks(query) {
+      const q = encodeURIComponent(query);
+      return {
+        amazon: `https://www.amazon.com/s?k=${q}`,
+        ebay: `https://www.ebay.com/sch/i.html?_nkw=${q}`,
+        googleShopping: `https://www.google.com/search?tbm=shop&q=${q}`
+      };
+    }
+
+    // ---------- DOM ----------
+    const supportPill = document.getElementById("supportPill");
+    const video = document.getElementById("video");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const scanStatus = document.getElementById("scanStatus");
+
+    const codeInput = document.getElementById("codeInput");
+    const nameInput = document.getElementById("nameInput");
+    const noteInput = document.getElementById("noteInput");
+    const addBtn = document.getElementById("addBtn");
+    const clearFormBtn = document.getElementById("clearFormBtn");
+
+    const exportBtn = document.getElementById("exportBtn");
+    const importBtn = document.getElementById("importBtn");
+    const importFile = document.getElementById("importFile");
+    const wipeBtn = document.getElementById("wipeBtn");
+
+    const listEl = document.getElementById("list");
+    const emptyText = document.getElementById("emptyText");
+    const countText = document.getElementById("countText");
+    const searchInput = document.getElementById("searchInput");
+
+    // ---------- App state ----------
+    let items = loadItems();
+    let stream = null;
+    let detector = null;
+    let scanning = false;
+    let lastSeen = { value: null, t: 0 };
+
+    const supportsBarcodeDetector = "BarcodeDetector" in window;
+
+    // Inform support
+    (function initSupportPill() {
+      if (supportsBarcodeDetector) {
+        supportPill.textContent = "Scanner supported (BarcodeDetector)";
+      } else {
+        supportPill.textContent = "Scanner not supported — manual add works";
+        supportPill.classList.add("warn");
+      }
+    })();
+
+    // ---------- Rendering ----------
+    function render() {
+      const filter = (searchInput.value || "").trim().toLowerCase();
+      const filtered = items.filter(it => {
+        const hay = `${it.code} ${it.name || ""} ${it.note || ""}`.toLowerCase();
+        return hay.includes(filter);
+      });
+
+      countText.textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"}`;
+      listEl.innerHTML = "";
+      emptyText.style.display = filtered.length ? "none" : "block";
+
+      for (const it of filtered) {
+        const query = it.name?.trim() ? `${it.name} ${it.code}` : it.code;
+        const links = buildSearchLinks(query);
+
+        const el = document.createElement("div");
+        el.className = "item";
+        el.innerHTML = `
+          <div class="itemTop">
+            <div>
+              <div class="itemCode">${escapeHtml(it.code)}</div>
+              <div class="itemMeta">
+                ${it.name ? escapeHtml(it.name) + " • " : ""}
+                ${it.note ? escapeHtml(it.note) + " • " : ""}
+                <span class="small">Added ${escapeHtml(new Date(it.addedAt).toLocaleString())}</span>
+              </div>
+            </div>
+            <div class="right">
+              <button data-del="${escapeHtml(it.id)}" class="danger small">Delete</button>
+            </div>
+          </div>
+
+          <div class="links">
+            <a class="linkBtn" target="_blank" rel="noopener noreferrer" href="${links.amazon}">Amazon</a>
+            <a class="linkBtn" target="_blank" rel="noopener noreferrer" href="${links.ebay}">eBay</a>
+            <a class="linkBtn" target="_blank" rel="noopener noreferrer" href="${links.googleShopping}">Google Shopping</a>
+          </div>
+        `;
+        listEl.appendChild(el);
+      }
+
+      // Wire delete buttons
+      listEl.querySelectorAll("button[data-del]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-del");
+          items = items.filter(x => x.id !== id);
+          saveItems(items);
+          render();
+        });
+      });
+    }
+
+    render();
+
+    // ---------- Add / form ----------
+    function addItem({ code, name, note }) {
+      const clean = cleanCode(code);
+      if (!clean) return alert("Enter a barcode/UPC/EAN first.");
+      const id = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+
+      // prevent exact duplicates (same code) by default—comment out if you want multiples
+      const exists = items.some(x => x.code === clean);
+      if (exists) {
+        const ok = confirm("That code is already in your index. Add another entry anyway?");
+        if (!ok) return;
+      }
+
+      items.unshift({
+        id,
+        code: clean,
+        name: (name || "").trim(),
+        note: (note || "").trim(),
+        addedAt: nowIso()
+      });
+      saveItems(items);
+      render();
+    }
+
+    addBtn.addEventListener("click", () => {
+      addItem({ code: codeInput.value, name: nameInput.value, note: noteInput.value });
+      codeInput.value = "";
+      nameInput.value = "";
+      noteInput.value = "";
+      codeInput.focus();
+    });
+
+    clearFormBtn.addEventListener("click", () => {
+      codeInput.value = "";
+      nameInput.value = "";
+      noteInput.value = "";
+      codeInput.focus();
+    });
+
+    searchInput.addEventListener("input", render);
+
+    // ---------- Export / Import ----------
+    exportBtn.addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "barcode-index.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    importBtn.addEventListener("click", () => importFile.click());
+
+    importFile.addEventListener("change", async () => {
+      const file = importFile.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!Array.isArray(data)) throw new Error("JSON must be an array.");
+        // basic validation / normalization
+        const normalized = data
+          .map(x => ({
+            id: x.id || (crypto?.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)),
+            code: cleanCode(x.code),
+            name: (x.name || "").trim(),
+            note: (x.note || "").trim(),
+            addedAt: x.addedAt || nowIso()
+          }))
+          .filter(x => x.code);
+
+        items = normalized.concat(items);
+        saveItems(items);
+        render();
+        alert(`Imported ${normalized.length} item(s).`);
+      } catch (e) {
+        alert("Import failed: " + (e?.message || e));
+      } finally {
+        importFile.value = "";
+      }
+    });
+
+    wipeBtn.addEventListener("click", () => {
+      const ok = confirm("Wipe all indexed items? This cannot be undone.");
+      if (!ok) return;
+      items = [];
+      saveItems(items);
+      render();
+    });
+
+    // ---------- Scanning ----------
+    async function startCamera() {
+      if (stream) return;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
+
+        scanStatus.textContent = "Camera started.";
+        stopBtn.disabled = false;
+
+        if (supportsBarcodeDetector) {
+          // Choose formats commonly used in retail. Add more if you want.
+          detector = new BarcodeDetector({
+            formats: ["upc_a", "upc_e", "ean_13", "ean_8", "qr_code", "code_128"]
+          });
+          scanning = true;
+          scanLoop();
+        } else {
+          scanStatus.innerHTML = `Camera started, but your browser doesn't support BarcodeDetector. <span class="warn">Use manual add.</span>`;
+        }
+      } catch (e) {
+        stream = null;
+        scanStatus.textContent = "Camera error: " + (e?.message || e);
+      }
+    }
+
+    function stopCamera() {
+      scanning = false;
+      detector = null;
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+      scanStatus.textContent = "Stopped.";
+    }
+
+    startBtn.addEventListener("click", startCamera);
+    stopBtn.addEventListener("click", stopCamera);
+    stopBtn.disabled = true;
+
+    async function scanLoop() {
+      if (!scanning || !detector || !video || video.readyState < 2) {
+        if (scanning) requestAnimationFrame(scanLoop);
+        return;
+      }
+
+      try {
+        const barcodes = await detector.detect(video);
+        if (barcodes && barcodes.length) {
+          // pick the first barcode
+          const raw = barcodes[0].rawValue || "";
+          const code = cleanCode(raw);
+
+          // debounce duplicate reads
+          const t = Date.now();
+          const sameAsLast = lastSeen.value === code && (t - lastSeen.t) < 1500;
+          if (code && !sameAsLast) {
+            lastSeen = { value: code, t };
+            codeInput.value = code;
+            scanStatus.textContent = `Detected: ${code} (added to input)`;
+            // Optional: auto-add on detection
+            // addItem({ code, name: "", note: "" });
+          }
+        } else {
+          scanStatus.textContent = "Scanning… (aim at barcode)";
+        }
+      } catch (e) {
+        scanStatus.textContent = "Scan error: " + (e?.message || e);
+      }
+
+      requestAnimationFrame(scanLoop);
+    }
+  </script>
+</body>
+</html>
